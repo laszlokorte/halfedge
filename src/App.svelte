@@ -102,6 +102,44 @@
 		return startEdge === nextNextNextEdge
 	}
 
+	function rotateFace(face, geometry) {
+		return {
+			vertexPositions: geometry.vertexPositions,
+			vertexSuccessorEdges: geometry.vertexSuccessorEdges,
+			halfEdgeSuccessorVertices: geometry.halfEdgeSuccessorVertices,
+			halfEdgeSuccessorEdges: geometry.halfEdgeSuccessorEdges,
+			halfEdgePartners: geometry.halfEdgePartners,
+			halfEdgeFaces: geometry.halfEdgeFaces,
+			faceStartEdges: geometry.faceStartEdges.map((o, i) => {
+				if(i===face) {
+					return geometry.halfEdgeSuccessorEdges[o]
+				} else {
+					return o
+				}
+			}),
+		}
+	}
+
+
+
+	function rotateVertex(vertex, geometry) {
+		return {
+			vertexPositions: geometry.vertexPositions,
+			vertexSuccessorEdges: geometry.vertexSuccessorEdges.map((o, i) => {
+				if(i===vertex) {
+					return geometry.halfEdgePartners[geometry.halfEdgeSuccessorEdges[o]]
+				} else {
+					return o
+				}
+			}),
+			halfEdgeSuccessorVertices: geometry.halfEdgeSuccessorVertices,
+			halfEdgeSuccessorEdges: geometry.halfEdgeSuccessorEdges,
+			halfEdgePartners: geometry.halfEdgePartners,
+			halfEdgeFaces: geometry.halfEdgeFaces,
+			faceStartEdges: geometry.faceStartEdges,
+		}
+	}
+
 	function canTriangulateFace(face, geometry) {
 		const startEdge = geometry.faceStartEdges[face]
 		const nextEdge = geometry.halfEdgeSuccessorEdges[startEdge]
@@ -222,6 +260,14 @@
 		geometry = triangulateFace(face, geometry)
 	}
 	
+	function doRotateFace(face) {
+		geometry = rotateFace(face, geometry)
+	}
+	
+	function doRotateVertex(vertex) {
+		geometry = rotateVertex(vertex, geometry)
+	}
+	
 	function faceMeanPosition(geometry, faceId) {
 		let xSum = 0
 		let ySum = 0
@@ -259,6 +305,14 @@
 	
 	function clickTriangulate(evt) {
 		doTriangulate(1*evt.currentTarget.getAttribute('data-face'))
+	}
+	
+	function clickRotateFace(evt) {
+		doRotateFace(1*evt.currentTarget.getAttribute('data-face'))
+	}
+	
+	function clickRotateVertex(evt) {
+		doRotateVertex(1*evt.currentTarget.getAttribute('data-vertex'))
 	}
 	
 	let selectedVertex = null
@@ -318,16 +372,6 @@
 		list-style: none;
 		margin: 0;
 		padding: 0;
-	}
-	
-	dl {
-		display: grid;
-		grid-template-columns: max-content max-content;
-		gap: 1em;
-	}
-	
-	dd {
-		margin: 0;
 	}
 
 
@@ -404,6 +448,8 @@
 				<line class:hidden={!showTraversals} x1={pos.x} y1={pos.y + 0.05} x2={edgeCenter.x} y2={edgeCenter.y} stroke="GoldenRod" stroke-width="0.01" marker-end="url(#arrow)"></line>
 				 
 				<path class:hidden={!showControls || !canTriangulateFace(faceId, geometry)} d="M{pos.x}  {pos.y + 0.09} l0.025 0l-0.025 -0.05l-0.025 0.05" fill="brown"></path>
+			
+				<circle class:hidden={!showControls || !showTraversals} cx={pos.x} cy={pos.y + 0.2} r="0.05" />
 			{/if}
 		{/each}
 		</g>
@@ -457,16 +503,25 @@
 			<circle stroke="none" cx={x} cy={y} r="0.1" fill="none" pointer-events="fill" cursor="move" on:mousedown={dragStart} data-vertex={vidx}>
 				<title>Drag Vertex</title>
 			</circle>
+
+			<circle class:hidden={!showTraversals} stroke="none" cx={x} cy={y-0.1} r="0.05" fill="black" pointer-events="fill" cursor="pointer" on:click={clickRotateVertex} data-vertex={vidx}>
+				<title>Rotate Vertex</title>
+			</circle>
 		{/each}
 		</g>
 		
 		<g class:hidden={!showControls || !showFaces}>
 		{#each geometry.faceStartEdges as startEdge, faceId}
 			{@const pos = faceMeanPosition(geometry, faceId)}
+			
 			{#if faceId > 0 && canTriangulateFace(faceId, geometry)}
-					<circle class:hidden={!showControls} cx={pos.x} cy={pos.y + 0.05} r="0.04" fill="none" pointer-events="fill" cursor="pointer" on:click={clickTriangulate} data-face={faceId}>
-						<title>Triangulate Face</title>
-					</circle>
+				<circle class:hidden={!showControls} cx={pos.x} cy={pos.y + 0.05} r="0.04" fill="none" pointer-events="fill" cursor="pointer" on:click={clickTriangulate} data-face={faceId}>
+					<title>Triangulate Face</title>
+				</circle>
+
+			{/if}
+			{#if faceId > 0}
+			<circle class:hidden={!showControls || !showTraversals} cx={pos.x} cy={pos.y + 0.2} r="0.08" fill="none" pointer-events="fill" on:click={clickRotateFace} cursor="pointer" data-face={faceId} />
 			{/if}
 		{/each}
 		</g>
