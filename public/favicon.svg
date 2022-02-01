@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <rect id="ArtBoard1" x="0" y="0" width="64" height="64" style="fill:none;"/>
+    <g id="ArtBoard11" serif:id="ArtBoard1">
+        <g>
+            <path d="M4.506,5.282L3.94,58.871L11.181,59.151L11.747,5.562L4.506,5.282Z" style="fill:rgb(0,128,128);"/>
+            <path d="M53.924,2.307L53.461,60.893L60.704,61.126L61.166,2.54L53.924,2.307Z" style="fill:rgb(0,128,128);"/>
+            <path d="M60.356,2.751L6.332,3.352L6.541,9.672L60.564,9.071L60.356,2.751Z" style="fill:rgb(0,128,128);"/>
+            <path d="M56.005,3.927L2.967,56.59L6.976,60.412L60.014,7.748L56.005,3.927Z" style="fill:rgb(0,128,128);"/>
+            <path d="M59.827,53.953L3.449,54.138L3.281,61.268L59.659,61.084L59.827,53.953Z" style="fill:rgb(0,128,128);"/>
+        </g>
+        <g>
+            <path d="M8.253,0.324C12.125,0.408 15.2,3.596 15.117,7.438C15.034,11.281 11.823,14.332 7.952,14.248C4.08,14.165 1.005,10.977 1.088,7.135C1.171,3.292 4.382,0.241 8.253,0.324Z" style="fill:rgb(255,20,147);"/>
+            <ellipse cx="56.894" cy="7.76" rx="6.93" ry="7.034" style="fill:rgb(255,20,147);"/>
+            <ellipse cx="7.553" cy="56.122" rx="6.977" ry="7.01" style="fill:rgb(255,20,147);"/>
+            <ellipse cx="56.967" cy="56.598" rx="6.452" ry="6.534" style="fill:rgb(255,20,147);"/>
+        </g>
+    </g>
+</svg>
