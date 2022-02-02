@@ -5,6 +5,9 @@
 	let showFaces = true
 	let showControls = true
 	let showTraversals = false
+	let showRotators = false
+
+	let selected = []
 
 	function createLoop() {
 		return {
@@ -36,7 +39,7 @@
 	
 	function createTriangle() {
 		return {
-			vertexPositions: [{x:-1,y:0}, {x:1,y:0}, {x:0,y:1}],
+			vertexPositions: [{x:-100,y:0}, {x:100,y:0}, {x:0,y:100}],
 			vertexSuccessorEdges: [2,0,1],
 			
 			halfEdgeSuccessorVertices: [1,2,0,2,1,0],
@@ -328,7 +331,7 @@
 		if(selectedVertex !== null) {
 			const pos = screenToLocal(evt.clientX, evt.clientY)
 			if(pos) {
-				geometry.vertexPositions[selectedVertex] = clampPoint({x:-1.8,y:-1.8}, {x:1.8,y:1.8}, pos)
+				geometry.vertexPositions[selectedVertex] = clampPoint({x:clampBox[0],y:clampBox[1]}, {x:clampBox[2]+clampBox[0],y:clampBox[3]+clampBox[1]}, pos)
 			}
 		}
 	}
@@ -346,6 +349,9 @@
 	
 	let svg = null
 	$: p = svg ? svg.createSVGPoint() : null
+	$: clampBox = svg ? svg.getAttribute('viewBox').split(' ').map((v) => parseFloat(v)) : [0,0,0,0]
+
+	$: console.log(clampBox)
 	
 	function screenToLocal(x,y) {
 		if(!svg) return null
@@ -392,6 +398,20 @@
 	svg {
 		border:  1px solid gray;
 	}
+
+	svg [cursor]:hover,
+	svg [cursor].active {
+		fill: #0004;
+	}
+
+	h3 {
+		margin: 0;
+	}
+
+	select {
+		width: 100%;
+		box-sizing: border-box;
+	}
 </style>
 
 <svelte:window on:mousemove={dragUpdate} on:mouseup={dragStop} />
@@ -415,26 +435,63 @@
 			<button on:click={() => {geometry = createTriangle()}}>
 				Clear</button>
 
+			<h3>Visible</h3>
 			<ul>
-				<li><label><input type="checkbox" bind:checked={showLabels} /> showLabels</label></li>
-				<li><label><input type="checkbox" bind:checked={showVertices} /> showVertices</label></li>
-				<li><label><input type="checkbox" bind:checked={showEdges} /> showEdges</label></li>
-				<li><label><input type="checkbox" bind:checked={showFaces} /> showFaces</label></li>
-				<li><label><input type="checkbox" bind:checked={showControls} /> showControls</label></li>
-				<li><label><input type="checkbox" bind:checked={showTraversals} /> showTraversals</label></li>
+				<li><label><input type="checkbox" bind:checked={showVertices} /> Vertices</label></li>
+				<li><label><input type="checkbox" bind:checked={showEdges} /> Edges</label></li>
+				<li><label><input type="checkbox" bind:checked={showFaces} /> Faces</label></li>
+				<li><label><input type="checkbox" bind:checked={showLabels} /> Labels</label></li>
+				<li><label><input type="checkbox" bind:checked={showControls} /> Controls</label></li>
+				<li><label><input type="checkbox" bind:checked={showTraversals} /> Traversals</label></li>
+				<li><label><input type="checkbox" bind:checked={showRotators} /> Rotators</label></li>
 			</ul>
 		</fieldset>
 
 
 
+		<fieldset>
+			<legend>Vertices ({geometry.vertexPositions.length})</legend>
+			<select readonly size="3" bind:value={selected}>
+				{#each geometry.vertexPositions as _, vidx}
+				<option>V{vidx}</option>
+				{/each}
+			</select>
+		</fieldset>
+
+		<fieldset>
+			<legend>Half Edges ({geometry.halfEdgeSuccessorEdges.length})</legend>
+			<select readonly size="3" bind:value={selected}>
+				{#each geometry.halfEdgeSuccessorEdges as _, edgeId}
+				<option>E{edgeId}</option>
+				{/each}
+			</select>
+		</fieldset>
+
+		<fieldset>
+			<legend>Faces ({geometry.faceStartEdges.length})</legend>
+			<select readonly size="3" bind:value={selected}>
+				{#each geometry.faceStartEdges as _, faceId}
+				<option>F{faceId}</option>
+				{/each}
+			</select>
+		</fieldset>
 	</header>
 
 
-	<svg bind:this={svg} viewBox="-2 -2 4 4" stroke-width="2" font-size="0.1" text-anchor="middle" dominant-baseline="middle">
+	<svg bind:this={svg} viewBox="-200 -200 400 400" stroke-width="2" font-size="9" text-anchor="middle" dominant-baseline="middle">
 		<defs>
 			<marker id="arrow" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" markerUnits="strokeWidth">
 				<path d="M0,0 L0,6 L9,3 z" fill="GoldenRod" />
 			</marker>
+
+			<marker id="halfarrow" markerWidth="10" markerHeight="10" refX="10" refY="5" orient="auto" markerUnits="strokeWidth">
+				<path d="M0,0 L0,5 L9,5 z" fill="GoldenRod" />
+			</marker>
+
+			<symbol width="10" height="10" overflow="visible" id="rotationarrow" viewBox="0 0 8 8">
+				<path transform="translate(-4 -4)" d="M3.967,0.643L3.969,1.208L3.784,1.219C3.35,1.242 2.928,1.354 2.521,1.553C1.515,2.047 0.83,2.993 0.669,4.108C0.635,4.342 0.634,4.781 0.668,5.006C0.809,5.99 1.327,6.816 2.145,7.363C2.343,7.497 2.712,7.676 2.94,7.752C3.988,8.095 5.127,7.907 6.017,7.241C6.186,7.115 6.495,6.814 6.622,6.653C7.056,6.099 7.305,5.445 7.346,4.736L7.357,4.561L6.883,4.564L6.409,4.569L6.398,4.734C6.335,5.755 5.591,6.648 4.59,6.901C4.357,6.96 4.196,6.975 3.9,6.966C3.591,6.957 3.416,6.923 3.141,6.819C2.615,6.621 2.158,6.226 1.888,5.737C1.558,5.141 1.493,4.446 1.706,3.801C1.955,3.051 2.598,2.442 3.364,2.236C3.51,2.198 3.804,2.152 3.915,2.152L3.976,2.152L3.979,2.72L3.984,3.287L5.129,2.492C5.758,2.057 6.275,1.691 6.277,1.684C6.28,1.668 4.002,0.08 3.978,0.08C3.972,0.08 3.967,0.333 3.967,0.643Z"/>
+
+			</symbol>
 		</defs>
 
 		<g class:hidden={!showFaces}>
@@ -444,12 +501,12 @@
 			{@const edgeCenter = interpHalfEdgeOffset(0.5, 0, halfEdge, geometry)}
 			{#if faceId > 0}
 				<polyline points={faceVertices(geometry, faceId).flatMap(({x,y}) => [x,y])} fill="SkyBlue" opacity="0.2"></polyline>
-				<text class:hidden={!showLabels} x={pos.x} y={pos.y} font-size="0.07">F {faceId}</text>
-				<line class:hidden={!showTraversals} x1={pos.x} y1={pos.y + 0.05} x2={edgeCenter.x} y2={edgeCenter.y} stroke="GoldenRod" stroke-width="0.01" marker-end="url(#arrow)"></line>
+				<text class:hidden={!showLabels} x={pos.x} y={pos.y}>F {faceId}</text>
+				<line class:hidden={!showTraversals} x1={pos.x} y1={pos.y + 10} x2={edgeCenter.x} y2={edgeCenter.y} stroke="GoldenRod" stroke-width="1" marker-end="url(#arrow)"></line>
 				 
-				<path class:hidden={!showControls || !canTriangulateFace(faceId, geometry)} d="M{pos.x}  {pos.y + 0.09} l0.025 0l-0.025 -0.05l-0.025 0.05" fill="brown"></path>
+				<path class:hidden={!showControls || !canTriangulateFace(faceId, geometry)} d="M{pos.x}  {pos.y + 23} l3 0l-3 -6l-3 6" fill="brown"></path>
 			
-				<circle class:hidden={!showControls || !showTraversals} cx={pos.x} cy={pos.y + 0.2} r="0.05" />
+				<use href="#rotationarrow" class:hidden={!showRotators || !showTraversals} x={pos.x} y={pos.y + 10} r="4" />
 			{/if}
 		{/each}
 		</g>
@@ -464,9 +521,9 @@
 				{@const centerPoint = interpHalfEdgeOffset(0.5, 0, currentEdge, geometry)}
 				{@const labelPos = interpHalfEdgeOffset(0.5, 0, currentEdge, geometry)}
 				<line x1={posA.x} y1={posA.y} x2={posB.x} y2={posB.y} stroke="Teal" vector-effect="non-scaling-stroke"></line>
-				<text transform="rotate({((vertexA > vertexB ? 0 : -180) + labelPos.angle * 180 / Math.PI + 360 +90) % 180 - 90}, {labelPos.x}, {labelPos.y})" class:hidden={!showLabels} x={labelPos.x} y={labelPos.y + (vertexA > vertexB ? 0.08 : -0.08)} font-size="0.07">e{currentEdge} [v{vertexA} to v{vertexB}] (o: {geometry.halfEdgePartners[currentEdge]}, f: {geometry.halfEdgePartners[currentEdge]})</text>
+				<text transform="rotate({((vertexA > vertexB ? 0 : -180) + labelPos.angle * 180 / Math.PI + 360 +90) % 180 - 90}, {labelPos.x}, {labelPos.y})" class:hidden={!showLabels} x={labelPos.x} y={labelPos.y + (vertexA > vertexB ? 8 : -8)}>e{currentEdge} [v{vertexA} to v{vertexB}] (o: {geometry.halfEdgePartners[currentEdge]}, f: {geometry.halfEdgePartners[currentEdge]})</text>
 
-				<circle class:hidden={!showControls} cx={centerPoint.x} cy={centerPoint.y} r="0.02" fill="Tomato"></circle>
+				<circle class:hidden={!showControls} cx={centerPoint.x} cy={centerPoint.y} r="3" fill="Tomato"></circle>
 			{/each}
 		</g>
 		
@@ -475,15 +532,18 @@
 		{#each geometry.vertexPositions as {x,y}, vidx}
 			{@const edgeCenter = interpHalfEdgeOffset(0.5, 0, geometry.vertexSuccessorEdges[vidx], geometry)}
 			
-			<circle cx={x} cy={y} r="0.03" fill="DeepPink">
+			<line class:hidden={!showTraversals} x1={x} y1={y} x2={edgeCenter.x} y2={edgeCenter.y} stroke="GoldenRod" stroke-width="1" marker-end="url(#arrow)"></line>
+
+			<circle cx={x} cy={y} r="4" fill="DeepPink">
 			<title>{vidx}</title>
 			</circle>
-			<text class:hidden={!showLabels} x={x} y={y+(0.1*Math.sign(y||-1))}>
+			<text class:hidden={!showLabels} x={x} y={y+(10*Math.sign(y||-1))}>
 			v{vidx} (e{geometry.vertexSuccessorEdges[vidx]})
 			</text>
 			
-				<line class:hidden={!showTraversals} x1={x} y1={y} x2={edgeCenter.x} y2={edgeCenter.y} stroke="GoldenRod" stroke-width="0.01" marker-end="url(#arrow)"></line>
 
+			<use href="#rotationarrow" class:hidden={!showRotators || !showTraversals} stroke="none" x={x-10} y={y} fill="black">
+			</use>
 		{/each}
 		</g>
 		
@@ -491,37 +551,38 @@
 		{#each geometry.halfEdgeSuccessorEdges as _,currentEdge}
 			{@const centerPoint = interpHalfEdgeOffset(0.5, 0, currentEdge, geometry)}
 
-			<circle cx={centerPoint.x} cy={centerPoint.y} r="0.15" fill="none" pointer-events="fill" cursor="copy" on:mousedown={clickSplit} data-edge={currentEdge}>
+			<circle cx={centerPoint.x} cy={centerPoint.y} r="10" fill="none" pointer-events="fill" cursor="copy" on:mousedown={clickSplit} data-edge={currentEdge}>
 				<title>Add Vertex</title>
 			</circle>
 
 		{/each}
 		</g>
 		
-		<g class:hidden={!showControls || !showVertices}>
+		<g class:hidden={!showVertices}>
 		{#each geometry.vertexPositions as {x,y}, vidx}
-			<circle stroke="none" cx={x} cy={y} r="0.1" fill="none" pointer-events="fill" cursor="move" on:mousedown={dragStart} data-vertex={vidx}>
-				<title>Drag Vertex</title>
+
+			<circle class:hidden={!showRotators || !showTraversals} stroke="none" cx={x-10} cy={y} r="10" fill="none" pointer-events="fill" cursor="pointer" on:click={clickRotateVertex} data-vertex={vidx}>
+				<title>Rotate Vertex</title>
 			</circle>
 
-			<circle class:hidden={!showTraversals} stroke="none" cx={x} cy={y-0.1} r="0.05" fill="black" pointer-events="fill" cursor="pointer" on:click={clickRotateVertex} data-vertex={vidx}>
-				<title>Rotate Vertex</title>
+			<circle class:hidden={!showControls} stroke="none" cx={x} cy={y} r="10" fill="none" pointer-events="fill" cursor="move" on:mousedown={dragStart} data-vertex={vidx} class:active={selectedVertex === vidx}>
+				<title>Drag Vertex</title>
 			</circle>
 		{/each}
 		</g>
 		
-		<g class:hidden={!showControls || !showFaces}>
+		<g class:hidden={!showFaces}>
 		{#each geometry.faceStartEdges as startEdge, faceId}
 			{@const pos = faceMeanPosition(geometry, faceId)}
 			
 			{#if faceId > 0 && canTriangulateFace(faceId, geometry)}
-				<circle class:hidden={!showControls} cx={pos.x} cy={pos.y + 0.05} r="0.04" fill="none" pointer-events="fill" cursor="pointer" on:click={clickTriangulate} data-face={faceId}>
+				<circle class:hidden={!showControls} cx={pos.x} cy={pos.y + 20} r="10" fill="none" pointer-events="fill" cursor="pointer" on:click={clickTriangulate} data-face={faceId}>
 					<title>Triangulate Face</title>
 				</circle>
 
 			{/if}
 			{#if faceId > 0}
-			<circle class:hidden={!showControls || !showTraversals} cx={pos.x} cy={pos.y + 0.2} r="0.08" fill="none" pointer-events="fill" on:click={clickRotateFace} cursor="pointer" data-face={faceId} />
+			<circle class:hidden={!showRotators || !showTraversals} cx={pos.x} cy={pos.y + 10} r="10" fill="none" pointer-events="fill" on:click={clickRotateFace} cursor="pointer" data-face={faceId} />
 			{/if}
 		{/each}
 		</g>
