@@ -7,7 +7,19 @@
 	let showTraversals = false
 	let showRotators = false
 
-	let selected = []
+	let selected = 'F0'
+
+	function isVertexSelected(s, v) {
+		return s === 'V'+v
+	}
+
+	function isEdgeSelected(s, e) {
+		return s === 'E'+e
+	}
+
+	function isFaceSelected(s, f) {
+		return s === 'F'+f
+	}
 
 	function createLoop() {
 		return {
@@ -303,7 +315,8 @@
 	
 	function clickSplit(evt) {
 		doSplit(1*evt.currentTarget.getAttribute('data-edge'))
-		selectedVertex = geometry.vertexPositions.length - 1
+		grabbedVertex = geometry.vertexPositions.length - 1
+		selected = 'V' + grabbedVertex
 	}
 	
 	function clickTriangulate(evt) {
@@ -318,22 +331,33 @@
 		doRotateVertex(1*evt.currentTarget.getAttribute('data-vertex'))
 	}
 	
-	let selectedVertex = null
+	let grabbedVertex = null
 	function dragStart(evt) {
-		selectedVertex = 1*evt.currentTarget.getAttribute('data-vertex')
+		const vertexId = 1*evt.currentTarget.getAttribute('data-vertex')
+		grabbedVertex = vertexId
 	}
 	
 	function dragStop() {
-		selectedVertex = null
+		grabbedVertex = null
 	}
 	
 	function dragUpdate(evt) {
-		if(selectedVertex !== null) {
+		if(grabbedVertex !== null) {
 			const pos = screenToLocal(evt.clientX, evt.clientY)
 			if(pos) {
-				geometry.vertexPositions[selectedVertex] = clampPoint({x:clampBox[0],y:clampBox[1]}, {x:clampBox[2]+clampBox[0],y:clampBox[3]+clampBox[1]}, pos)
+				geometry.vertexPositions[grabbedVertex] = clampPoint({x:clampBox[0],y:clampBox[1]}, {x:clampBox[2]+clampBox[0],y:clampBox[3]+clampBox[1]}, pos)
 			}
 		}
+	}
+
+	function clickSelectElement(evt) {
+		if(evt.currentTarget.hasAttribute('data-vertex')) {
+			selected = 'V'+evt.currentTarget.getAttribute('data-vertex')
+		} else if(evt.currentTarget.hasAttribute('data-edge')) {
+			selected = 'E'+evt.currentTarget.getAttribute('data-edge')
+		} else if(evt.currentTarget.hasAttribute('data-face')) {
+			selected = 'F'+evt.currentTarget.getAttribute('data-face')
+		}	
 	}
 
 	function clampPoint(min, max, point) {
@@ -411,6 +435,31 @@
 	select {
 		width: 100%;
 		box-sizing: border-box;
+		accent-color: orange;
+	}
+
+	circle.selected {
+		stroke: orange;
+		pointer-events: none;
+	}
+
+	polygon.selected {
+		stroke: orange;
+		fill: orange;
+		stroke-width: 2;
+	}
+
+	path.selected {
+		stroke: orange;
+		fill: orange;
+		stroke-width: 2;
+		pointer-events: none;
+	}
+
+	line.selected {
+		stroke: orange;
+		stroke-width: 3;
+		pointer-events: none;
 	}
 </style>
 
@@ -478,7 +527,7 @@
 	</header>
 
 
-	<svg bind:this={svg} viewBox="-200 -200 400 400" stroke-width="2" font-size="9" text-anchor="middle" dominant-baseline="middle">
+	<svg bind:this={svg} viewBox="-200 -200 400 400" stroke-width="2" font-size="9" text-anchor="middle" dominant-baseline="middle" >
 		<defs>
 			<marker id="arrow" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" markerUnits="strokeWidth">
 				<path d="M0,0 L0,6 L9,3 z" fill="GoldenRod" />
@@ -494,13 +543,17 @@
 			</symbol>
 		</defs>
 
+		<path d="M-300,-300 L300,-300 L300,300 L-300,300Z M{
+			faceVertices(geometry, 0).map(({x,y}) => x+','+y).reverse().join(' L')
+		}" on:click|stopPropagation={clickSelectElement} data-face="0" class:selected={isFaceSelected(selected, 0)} fill-opacity="0.2" pointer-events="all" fill="none" fill-rule="evenodd" />
+
 		<g class:hidden={!showFaces}>
 		{#each geometry.faceStartEdges as startEdge, faceId}
 			{@const pos = faceMeanPosition(geometry, faceId)}
 			{@const halfEdge = geometry.faceStartEdges[faceId]}
 			{@const edgeCenter = interpHalfEdgeOffset(0.5, 0, halfEdge, geometry)}
 			{#if faceId > 0}
-				<polyline points={faceVertices(geometry, faceId).flatMap(({x,y}) => [x,y])} fill="SkyBlue" opacity="0.2"></polyline>
+				<polygon on:click|stopPropagation={clickSelectElement} points={faceVertices(geometry, faceId).flatMap(({x,y}) => [x,y])} fill="SkyBlue" fill-opacity="0.2" data-face={faceId} class:selected={isFaceSelected(selected, faceId)}></polygon>
 				<text class:hidden={!showLabels} x={pos.x} y={pos.y}>F {faceId}</text>
 				<line class:hidden={!showTraversals} x1={pos.x} y1={pos.y + 10} x2={edgeCenter.x} y2={edgeCenter.y} stroke="GoldenRod" stroke-width="1" marker-end="url(#arrow)"></line>
 				 
@@ -546,6 +599,19 @@
 			</use>
 		{/each}
 		</g>
+
+		<g class:hidden={!showEdges}>
+			{#each geometry.halfEdgeSuccessorEdges as _,currentEdge}
+				{@const backEdgeEdge = geometry.halfEdgePartners[currentEdge]}
+				{@const vertexA = geometry.halfEdgeSuccessorVertices[backEdgeEdge]}
+				{@const vertexB = geometry.halfEdgeSuccessorVertices[currentEdge]}
+				{@const posA = interpHalfEdgeOffset(0, 0, currentEdge, geometry)}
+				{@const posB = interpHalfEdgeOffset(1, 0, currentEdge, geometry)}
+				{@const centerPoint = interpHalfEdgeOffset(0.5, 0, currentEdge, geometry)}
+				{@const labelPos = interpHalfEdgeOffset(0.5, 0, currentEdge, geometry)}
+				<line on:click|stopPropagation={clickSelectElement} data-edge={currentEdge} x1={posA.x} y1={posA.y} x2={posB.x} y2={posB.y} stroke="none" vector-effect="non-scaling-stroke" stroke-width="10" cursor="default" pointer-events="stroke" class:selected={isEdgeSelected(selected, currentEdge)}></line>
+			{/each}
+		</g>
 		
 		<g class:hidden={!showControls}>
 		{#each geometry.halfEdgeSuccessorEdges as _,currentEdge}
@@ -557,6 +623,13 @@
 
 		{/each}
 		</g>
+
+		<g class:hidden={!showVertices}>
+		{#each geometry.vertexPositions as {x,y}, vidx}
+			<circle on:click|stopPropagation={clickSelectElement} stroke="none" cx={x} cy={y} r="10" fill="none" pointer-events="fill" data-vertex={vidx} class:selected={isVertexSelected(selected, vidx)}>
+			</circle>
+		{/each}
+		</g>
 		
 		<g class:hidden={!showVertices}>
 		{#each geometry.vertexPositions as {x,y}, vidx}
@@ -565,7 +638,7 @@
 				<title>Rotate Vertex</title>
 			</circle>
 
-			<circle class:hidden={!showControls} stroke="none" cx={x} cy={y} r="10" fill="none" pointer-events="fill" cursor="move" on:mousedown={dragStart} data-vertex={vidx} class:active={selectedVertex === vidx}>
+			<circle on:click|stopPropagation={clickSelectElement} class:hidden={!showControls} stroke="none" cx={x} cy={y} r="10" fill="none" pointer-events="fill" cursor="move" on:mousedown={dragStart} data-vertex={vidx} class:active={grabbedVertex === vidx}>
 				<title>Drag Vertex</title>
 			</circle>
 		{/each}
