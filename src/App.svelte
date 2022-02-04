@@ -527,7 +527,7 @@
 	</header>
 
 
-	<svg bind:this={svg} viewBox="-200 -200 400 400" stroke-width="2" font-size="9" text-anchor="middle" dominant-baseline="middle" >
+	<svg bind:this={svg} viewBox="-200 -200 400 400" stroke-width="2" font-size="9" text-anchor="middle" dominant-baseline="middle" on:click={() => {selected = null}} >
 		<defs>
 			<marker id="arrow" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" markerUnits="strokeWidth">
 				<path d="M0,0 L0,6 L9,3 z" fill="GoldenRod" />
@@ -543,9 +543,9 @@
 			</symbol>
 		</defs>
 
-		<path d="M-300,-300 L300,-300 L300,300 L-300,300Z M{
+		<path class:hidden={!showFaces} d="M-300,-300 L300,-300 L300,300 L-300,300Z M{
 			faceVertices(geometry, 0).map(({x,y}) => x+','+y).reverse().join(' L')
-		}" on:click|stopPropagation={clickSelectElement} data-face="0" class:selected={isFaceSelected(selected, 0)} fill-opacity="0.2" pointer-events="all" fill="none" fill-rule="evenodd" />
+		}Z" on:click|stopPropagation={clickSelectElement} data-face="0" class:selected={isFaceSelected(selected, 0)} fill-opacity="0.2" pointer-events="all" fill="none" fill-rule="evenodd" />
 
 		<g class:hidden={!showFaces}>
 		{#each geometry.faceStartEdges as startEdge, faceId}
