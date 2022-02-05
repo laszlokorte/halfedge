@@ -1,13 +1,24 @@
 <script>
+	import samples from './meshes.js'
+
 	let showLabels = false
 	let showVertices = true
 	let showEdges = true
 	let showFaces = true
 	let showControls = true
 	let showTraversals = false
-	let showRotators = false
+	let showRotators = true
 
-	let selected = 'F0'
+	let selected = null
+	
+	function loadMesh(name) {
+		if(samples[name]) {	
+			selected = null	
+			geometry = samples[name]
+		}
+	}
+
+	const formatter = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 2 })
 
 	function isVertexSelected(s, v) {
 		return s === 'V'+v
@@ -62,7 +73,7 @@
 			faceStartEdges: [0,3],
 		}
 	}
-	
+
 	function interp(t, a, b) {
 		return a + t * (b - a)
 	}
@@ -171,6 +182,7 @@
 		const nextEdge = geometry.halfEdgeSuccessorEdges[startEdge]
 		const nextNextEdge = geometry.halfEdgeSuccessorEdges[nextEdge]
 		const nextNextNextEdge = geometry.halfEdgeSuccessorEdges[nextNextEdge]
+		
 		if(!canTriangulateFace(face, geometry)) {
 			return geometry
 		}
@@ -315,8 +327,10 @@
 	
 	function clickSplit(evt) {
 		doSplit(1*evt.currentTarget.getAttribute('data-edge'))
-		grabbedVertex = geometry.vertexPositions.length - 1
-		selected = 'V' + grabbedVertex
+		if(evt.type === 'mousedown') {
+			grabbedVertex = geometry.vertexPositions.length - 1
+		}
+		selected = 'V' + (geometry.vertexPositions.length - 1)
 	}
 	
 	function clickTriangulate(evt) {
@@ -345,7 +359,16 @@
 		if(grabbedVertex !== null) {
 			const pos = screenToLocal(evt.clientX, evt.clientY)
 			if(pos) {
-				geometry.vertexPositions[grabbedVertex] = clampPoint({x:clampBox[0],y:clampBox[1]}, {x:clampBox[2]+clampBox[0],y:clampBox[3]+clampBox[1]}, pos)
+				geometry = {
+					...geometry,
+					vertexPositions: geometry.vertexPositions.map((o,v) => {
+						if(v===grabbedVertex) {
+							return clampPoint({x:clampBox[0],y:clampBox[1]}, {x:clampBox[2]+clampBox[0],y:clampBox[3]+clampBox[1]}, pos)
+						} else {
+							return o
+						}
+					})
+				}
 			}
 		}
 	}
@@ -374,8 +397,6 @@
 	let svg = null
 	$: p = svg ? svg.createSVGPoint() : null
 	$: clampBox = svg ? svg.getAttribute('viewBox').split(' ').map((v) => parseFloat(v)) : [0,0,0,0]
-
-	$: console.log(clampBox)
 	
 	function screenToLocal(x,y) {
 		if(!svg) return null
@@ -386,6 +407,11 @@
 </script>
 
 <style>
+
+	button {
+		padding: 0.2em 0.5em;
+		font: inherit;
+	}
 
 	svg {
 		max-width: 60rem;
@@ -404,10 +430,21 @@
 		padding: 0;
 	}
 
+	dl {
+		display: grid;
+		grid-template-columns: max-content auto;
+		gap: 0.5em 1em;
+		margin: 0;
+	}
+
+	dd {
+		margin: 0;
+	}
+
 
 	article {
 		max-width: 60em;
-		margin:  auto;
+		margin: 1em auto 5em;
 	}
 
 	.layout {
@@ -461,6 +498,16 @@
 		stroke-width: 3;
 		pointer-events: none;
 	}
+
+	.inline-list {
+		display: flex;
+		gap: 1em;
+	}
+
+	.element-link {
+		cursor: pointer;
+		text-decoration: underline;
+	}
 </style>
 
 <svelte:window on:mousemove={dragUpdate} on:mouseup={dragStop} />
@@ -477,27 +524,16 @@
 
 	<div class="layout">
 	<header>
-
 		<fieldset>
-			<legend>Options</legend>
-
-			<button on:click={() => {geometry = createTriangle()}}>
-				Clear</button>
-
-			<h3>Visible</h3>
-			<ul>
-				<li><label><input type="checkbox" bind:checked={showVertices} /> Vertices</label></li>
-				<li><label><input type="checkbox" bind:checked={showEdges} /> Edges</label></li>
-				<li><label><input type="checkbox" bind:checked={showFaces} /> Faces</label></li>
-				<li><label><input type="checkbox" bind:checked={showLabels} /> Labels</label></li>
-				<li><label><input type="checkbox" bind:checked={showControls} /> Controls</label></li>
-				<li><label><input type="checkbox" bind:checked={showTraversals} /> Traversals</label></li>
-				<li><label><input type="checkbox" bind:checked={showRotators} /> Rotators</label></li>
-			</ul>
+			<legend>Load</legend>
+			<select on:input|preventDefault={(evt) => {loadMesh(evt.currentTarget.value); evt.currentTarget.value=''}}>
+				<option value="">---</option>
+				{#each Object.keys(samples) as sample}
+				<option>{sample}</option>
+				{/each}
+			</select>
 		</fieldset>
-
-
-
+	
 		<fieldset>
 			<legend>Vertices ({geometry.vertexPositions.length})</legend>
 			<select readonly size="3" bind:value={selected}>
@@ -508,7 +544,7 @@
 		</fieldset>
 
 		<fieldset>
-			<legend>Half Edges ({geometry.halfEdgeSuccessorEdges.length})</legend>
+			<legend>Halfedges ({geometry.halfEdgeSuccessorEdges.length})</legend>
 			<select readonly size="3" bind:value={selected}>
 				{#each geometry.halfEdgeSuccessorEdges as _, edgeId}
 				<option>E{edgeId}</option>
@@ -523,6 +559,56 @@
 				<option>F{faceId}</option>
 				{/each}
 			</select>
+		</fieldset>
+
+		<fieldset style="min-height: 15em;">
+			{#if selected && selected[0] === 'V'}
+			<legend>Selected: Vertex {selected}</legend>
+			<dl>
+				<dt>Position</dt>
+				<dd>{formatter.format(geometry.vertexPositions[1*selected.substr(1)].x)}, {formatter.format(geometry.vertexPositions[1*selected.substr(1)].y)}</dd>
+				<dt>Successor Edge</dt>
+				<dd><span class="element-link" on:click={clickSelectElement} data-edge={geometry.vertexSuccessorEdges[1*selected.substr(1)]}>E{geometry.vertexSuccessorEdges[1*selected.substr(1)]}</span></dd>
+				<dt>Actions</dt>
+				<dd>
+					<button class="element-link" on:click|stopPropagation={clickRotateVertex} cursor="pointer" data-vertex={1*selected.substr(1)}>Rotate</button>
+				</dd>
+			</dl>
+			{:else if selected && selected[0] === 'E'}
+			<legend>Selected: Halfedge {selected} (<span class="element-link" on:click={() => {selected = null}}>unselect</span>)</legend>
+			<dl>
+				<dt>Succesor Edge</dt>
+				<dd><span class="element-link" on:click={clickSelectElement} data-edge={geometry.halfEdgeSuccessorEdges[1*selected.substr(1)]}>E{geometry.halfEdgeSuccessorEdges[1*selected.substr(1)]}</span></dd>
+				<dt>Succesor Vertex</dt>
+				<dd><span class="element-link" on:click={clickSelectElement} data-vertex={geometry.halfEdgeSuccessorVertices[1*selected.substr(1)]}>V{geometry.halfEdgeSuccessorVertices[1*selected.substr(1)]}</span></dd>
+				<dt>Partner Edge</dt>
+				<dd><span class="element-link" on:click={clickSelectElement} data-edge={geometry.halfEdgePartners[1*selected.substr(1)]}>E{geometry.halfEdgePartners[1*selected.substr(1)]}</span></dd>
+				<dt>Adjecent Face</dt>
+				<dd><span class="element-link" on:click={clickSelectElement} data-face={geometry.halfEdgeFaces[1*selected.substr(1)]}>F{geometry.halfEdgeFaces[1*selected.substr(1)]}</span></dd>
+
+
+				<dt>Actions</dt>
+				<dd>
+					<button class="element-link" on:click|stopPropagation={clickSplit} cursor="pointer" data-edge={1*selected.substr(1)}>Split</button>
+				</dd>
+			</dl>
+			{:else if selected && selected[0] === 'F'}
+			<legend>Selected: Face {selected} (<span class="element-link" on:click={() => {selected = null}}>unselect</span>)</legend>
+			<dl>
+				<dt>Start Edge</dt>
+				<dd><span class="element-link" on:click={clickSelectElement} data-edge={geometry.faceStartEdges[1*selected.substr(1)]}>E{geometry.faceStartEdges[1*selected.substr(1)]}</span></dd>
+				<dt>Actions</dt>
+				<dd>
+					<button class="element-link" on:click|stopPropagation={clickRotateFace} cursor="pointer" data-face={1*selected.substr(1)}>Rotate</button>
+					{#if canTriangulateFace(1*selected.substr(1), geometry)}
+					<button class="element-link" on:click|stopPropagation={clickTriangulate} cursor="pointer" data-face={1*selected.substr(1)}>Triangulate</button>
+					{/if}
+				</dd>
+			</dl>
+			{:else}
+			<legend>Noting selected</legend>
+			<p>Select a vertex, face or halfedge.</p>
+			{/if}
 		</fieldset>
 	</header>
 
@@ -613,7 +699,7 @@
 			{/each}
 		</g>
 		
-		<g class:hidden={!showControls}>
+		<g class:hidden={!showControls || !showEdges}>
 		{#each geometry.halfEdgeSuccessorEdges as _,currentEdge}
 			{@const centerPoint = interpHalfEdgeOffset(0.5, 0, currentEdge, geometry)}
 
@@ -634,7 +720,7 @@
 		<g class:hidden={!showVertices}>
 		{#each geometry.vertexPositions as {x,y}, vidx}
 
-			<circle class:hidden={!showRotators || !showTraversals} stroke="none" cx={x-10} cy={y} r="10" fill="none" pointer-events="fill" cursor="pointer" on:click={clickRotateVertex} data-vertex={vidx}>
+			<circle class:hidden={!showRotators || !showTraversals} stroke="none" cx={x-10} cy={y} r="10" fill="none" pointer-events="fill" cursor="pointer" on:click|stopPropagation={clickRotateVertex} data-vertex={vidx}>
 				<title>Rotate Vertex</title>
 			</circle>
 
@@ -655,7 +741,7 @@
 
 			{/if}
 			{#if faceId > 0}
-			<circle class:hidden={!showRotators || !showTraversals} cx={pos.x} cy={pos.y + 10} r="10" fill="none" pointer-events="fill" on:click={clickRotateFace} cursor="pointer" data-face={faceId} />
+			<circle class:hidden={!showRotators || !showTraversals} cx={pos.x} cy={pos.y + 10} r="10" fill="none" pointer-events="fill" on:click|stopPropagation={clickRotateFace} cursor="pointer" data-face={faceId} />
 			{/if}
 		{/each}
 		</g>
@@ -663,4 +749,25 @@
 	
 	</svg>
 	</div>
+
+	<fieldset>
+		<legend>View Options</legend>
+
+		<ul class="inline-list">
+			<li><label><input type="checkbox" bind:checked={showVertices} /> Vertices</label></li>
+			<li><label><input type="checkbox" bind:checked={showEdges} /> Edges</label></li>
+			<li><label><input type="checkbox" bind:checked={showFaces} /> Faces</label></li>
+			<li><label><input type="checkbox" bind:checked={showLabels} /> Labels</label></li>
+			<li><label><input type="checkbox" bind:checked={showControls} /> Controls</label></li>
+			<li><label><input type="checkbox" bind:checked={showTraversals} /> Traversals</label></li>
+			<li class:hidden={!showTraversals}><label><input type="checkbox" bind:checked={showRotators} /> Rotators</label></li>
+		</ul>
+	</fieldset>
+
+	<fieldset>
+		<legend>Export</legend>
+
+		<div contenteditable style="user-select: all;" readonly>{JSON.stringify(geometry)}</div>
+	</fieldset>
+
 </article>
