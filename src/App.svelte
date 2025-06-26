@@ -10,7 +10,7 @@
 	let showRotators = true
 
 	let selected = null
-	
+
 	function loadMesh(name) {
 		if(samples[name]) {	
 			selected = null	
@@ -275,12 +275,66 @@
 			faceStartEdges: [...geometry.faceStartEdges],
 		}
 	}
+
+	function splitFace(face, {x,y}, geometry) {
+		const newVertexId = geometry.vertexPositions.length
+		const startEdge = geometry.faceStartEdges[face]
+		const backEdge = geometry.halfEdgePartners[startEdge]
+		const v1 = geometry.halfEdgeSuccessorVertices[startEdge]
+		const v2 = geometry.halfEdgeSuccessorVertices[backEdge]
+
+		const innerEdges = faceEdges(geometry, face)
+
+		const newFaces = Array(innerEdges.length-1).fill(null).map((_,i) => geometry.faceStartEdges.length + i)
+
+		const newVertexPos = {x,y}
+
+		const oldEdgeCount = geometry.halfEdgePartners.length
+		const newEdgesA = innerEdges.map((_,i) => oldEdgeCount + i)
+		const newEdgesB = innerEdges.map((_,i) => oldEdgeCount + i + innerEdges.length)
+
+		const successorsA = innerEdges.map(() => newVertexId)
+		const successorsB = innerEdges.map((e) => geometry.halfEdgeSuccessorVertices[e])
+
+		
+		return geometry
+
+		return {
+			vertexPositions: [
+				...geometry.vertexPositions, newVertexPos
+			],
+			vertexSuccessorEdges: [
+				...geometry.vertexSuccessorEdges, oldEdgeCount
+			],
+			halfEdgeSuccessorVertices: [
+				...geometry.halfEdgeSuccessorVertices, 
+				...successorsA, ...successorsB
+			],
+			halfEdgeSuccessorEdges: geometry.halfEdgeSuccessorEdges,
+			halfEdgePartners: [
+				...geometry.halfEdgePartners, 
+				...newEdgesB, ...newEdgesA
+			],
+			halfEdgeFaces: [
+				...geometry.halfEdgeFaces, face, 
+				...newFaces, ...newFaces, face
+			],
+			faceStartEdges: [
+				...geometry.faceStartEdges, 
+				...innerEdges.slice(1)
+			],
+		}
+	}
 	
 	let geometry = createTriangle() 
 	
 	
-	function doSplit(edge) {
+	function doSplitEdge(edge) {
 		geometry = splitEdge(edge, geometry)
+	}
+
+	function doSplitFace(face, pos) {
+		geometry = splitFace(face, pos, geometry)
 	}
 	
 	function doTriangulate(face) {
@@ -316,7 +370,7 @@
 		const result = []
 		
 		const startEdge = geometry.faceStartEdges[faceId]
-		let currentEdge = geometry.faceStartEdges[faceId]
+		let currentEdge = startEdge
 		do {
 			result.push(geometry.vertexPositions[geometry.halfEdgeSuccessorVertices[currentEdge]])
 			currentEdge = geometry.halfEdgeSuccessorEdges[currentEdge]
@@ -325,12 +379,31 @@
 		return result
 	}
 	
-	function clickSplit(evt) {
-		doSplit(1*evt.currentTarget.getAttribute('data-edge'))
+	function faceEdges(geometry, faceId) {
+		const result = []
+		
+		const startEdge = geometry.faceStartEdges[faceId]
+		let currentEdge = startEdge
+		do {
+			result.push(currentEdge)
+			currentEdge = geometry.halfEdgeSuccessorEdges[currentEdge]
+		} while(currentEdge != startEdge)
+			
+		return result
+	}
+	
+	function clickSplitEdge(evt) {
+		doSplitEdge(1*evt.currentTarget.getAttribute('data-edge'))
 		if(evt.type === 'mousedown') {
 			grabbedVertex = geometry.vertexPositions.length - 1
 		}
 		selected = 'V' + (geometry.vertexPositions.length - 1)
+	}
+
+	function clickSplitFace(evt) {
+		const pos = screenToLocal(evt.clientX, evt.clientY)
+
+		doSplitFace(1*evt.currentTarget.getAttribute('data-face'), pos)
 	}
 	
 	function clickTriangulate(evt) {
@@ -589,7 +662,7 @@
 
 				<dt>Actions</dt>
 				<dd>
-					<button class="element-link" on:click|stopPropagation={clickSplit} cursor="pointer" data-edge={1*selected.substr(1)}>Split</button>
+					<button class="element-link" on:click|stopPropagation={clickSplitEdge} cursor="pointer" data-edge={1*selected.substr(1)}>Split</button>
 				</dd>
 			</dl>
 			{:else if selected && selected[0] === 'F'}
@@ -639,7 +712,7 @@
 			{@const halfEdge = geometry.faceStartEdges[faceId]}
 			{@const edgeCenter = interpHalfEdgeOffset(0.5, 0, halfEdge, geometry)}
 			{#if faceId > 0}
-				<polygon on:click|stopPropagation={clickSelectElement} points={faceVertices(geometry, faceId).flatMap(({x,y}) => [x,y])} fill="SkyBlue" fill-opacity="0.2" data-face={faceId} class:selected={isFaceSelected(selected, faceId)}></polygon>
+				<polygon on:dblclick|stopPropagation={clickSplitFace} on:click|stopPropagation={clickSelectElement} points={faceVertices(geometry, faceId).flatMap(({x,y}) => [x,y])} fill="SkyBlue" fill-opacity="0.2" data-face={faceId} class:selected={isFaceSelected(selected, faceId)}></polygon>
 				<text class:hidden={!showLabels} x={pos.x} y={pos.y}>F {faceId}</text>
 				<line class:hidden={!showTraversals} x1={pos.x} y1={pos.y + 10} x2={edgeCenter.x} y2={edgeCenter.y} stroke="GoldenRod" stroke-width="1" marker-end="url(#arrow)"></line>
 				 
@@ -703,7 +776,7 @@
 		{#each geometry.halfEdgeSuccessorEdges as _,currentEdge}
 			{@const centerPoint = interpHalfEdgeOffset(0.5, 0, currentEdge, geometry)}
 
-			<circle cx={centerPoint.x} cy={centerPoint.y} r="10" fill="none" pointer-events="fill" cursor="copy" on:mousedown={clickSplit} data-edge={currentEdge}>
+			<circle cx={centerPoint.x} cy={centerPoint.y} r="10" fill="none" pointer-events="fill" cursor="copy" on:mousedown={clickSplitEdge} data-edge={currentEdge}>
 				<title>Add Vertex</title>
 			</circle>
 
